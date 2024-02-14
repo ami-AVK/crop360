@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Обрезка изображений</title>
+    <style>
+      /* Стили для области перетаскивания */
+
+      /* Стили для подсветки области при перетаскивании */
+      #drop-area.dragging {
+        background-color: rgb(226, 232, 240);
+      }
+
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  </head>
+  <body class="bg-slate-100">
+    <!-- Область перетаскивания для загрузки изображений -->
+    <div id="loader" class="w-full h-full fixed bg-gray-800/60 top-0 z-50 backdrop-blur-lg hidden">
+        <div role="status" class="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2">
+            <svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/><path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/></svg>
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    <div id="drop-area" class="mt-32 w-full lg:max-w-screen-lg px-16 mx-auto h-96 hover:bg-sky-100 border-2 border-dashed border-slate-200 rounded-3xl flex text-center cursor-pointer">
+      <p class="mx-auto lg:text-lg self-center tracking-wide text-slate-400 font-light">
+        Перетащите сюда изображения или щелкните, чтобы выбрать файлы
+      </p>
+      <input
+        type="file"
+        id="fileElem"
+        multiple
+        accept="image/*"
+        style="display: none"
+      />
+    </div>
+    <!-- Контейнер для отображения результата -->
+    <div class="flex justify-between p-4 gap-4 w-full fixed top-0 bg-slate-100/40 items-center ">
+        <div id="filename" class="text-slate-500 font-bold tracking-wide text-lg"></div>
+        <div class="flex gap-4">
+            <button id="download-btn" class="z-50 bg-sky-500 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-sky-400 transition-colors disabled:bg-gray-200" disabled>
+                Скачать по отдельности
+            </button>
+            <button id="download-btn-zip" class="z-50 bg-blue-600 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-blue-400 transition-colors disabled:bg-gray-200" disabled>
+                Скачать zip-архив
+            </button>
+        </div>
+        <div id="progress" class="absolute h-2 top-0 bg-sky-500 left-0"></div>
+        
+    </div>
+    <div
+      id="result-container"
+      class="flex mx-auto flex-col py-8 items-center gap-8 w-full"
+    >
+      <div id="view360" class="w-full p-16 rounded-3xl empty:hidden max-w-screen-lg border-2 border-dashed border-slate-200"></div>
+      <!-- Кнопка для скачивания результата -->
+    </div>
+    <div
+      id="thumbs"
+      class="grid grid-cols-2 lg:grid-cols-4 gap-4 mx-auto px-16 py-16 bg-slate-100 empty:hidden"
+    ></div>
+    <!-- JavaScript код -->
+    <script>
+      // Получение необходимых элементов из DOM
+      var dropArea = document.getElementById("drop-area");
+      var resultContainer = document.getElementById("result-container");
+    //   var resultImage = document.getElementById("result-image");
+      var downloadBtn = document.getElementById("download-btn");
+      var downloadBtnZip = document.getElementById("download-btn-zip");
+      var fileElem = document.getElementById("fileElem");
+      var loader = document.getElementById("loader");
+
+      // Обработчики событий для области перетаскивания
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+      });
+
+      // Функция для предотвращения стандартного поведения браузера при перетаскивании
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      // Функции для подсветки области перетаскивания при перетаскивании
+      function highlight(e) {
+        dropArea.classList.add("dragging");
+      }
+
+      function unhighlight(e) {
+        dropArea.classList.remove("dragging");
+      }
+
+      // Обработчик события "drop" для области перетаскивания
+      dropArea.addEventListener("drop", handleDrop, false);
+
+      // Функция обработки загруженных файлов
+      function handleDrop(e) {
+        var dt = e.dataTransfer;
+        var files = dt.files;
+
+        // Проверяем каждый файл
+        for (var i = 0; i < files.length; i++) {
+          var file = files[i];
+            
+          loader.classList.remove("hidden");
+          // Если файл - zip-архив, читаем его содержимое
+          if (file.type === "application/zip") {
+            handleZipFile(file);
+          } else if (file.type.startsWith("image/")) {
+            // Если файл - изображение, обрабатываем его как ранее
+            handleFiles([file]);
+          }
+        }
+      }
+
+      // Обработчик события клика для кнопки выбора файлов
+      dropArea.addEventListener("click", function () {
+       
+        fileElem.click();
+      });
+
+      // Обработчик изменения выбранных файлов через input[type=file]
+      fileElem.addEventListener("change", function () {
+        var files = fileElem.files;
+        loader.classList.remove("hidden");
+        handleFiles(files);
+      });
+
+      // Функция для обработки содержимого zip-архива
+      function handleZipFile(file) {
+        var reader = new FileReader();
+
+        reader.onload = function (event) {
+          var zip = new JSZip();
+          zip.loadAsync(event.target.result).then(function (contents) {
+            // Получаем список файлов из zip-архива
+            var imageFiles = [];
+            contents.forEach(function (relativePath, zipEntry) {
+              // Проверяем, является ли файл изображением по его расширению
+              if (zipEntry.name.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                // filter MACOS archive
+                if (!zipEntry.name.match(/__MACOSX/i)) {
+                  imageFiles.push(zipEntry.name);
+                }
+              }
+            });
+
+            // Читаем изображения из zip-архива
+            var images = [];
+            var count = imageFiles.length;
+            var loaded = 0;
+            // Читаем изображения из zip-архива
+            var promises = imageFiles.map(function (imageFileName) {
+    
+
+              return zip
+                .file(imageFileName)
+                .async("base64")
+                .then(function (data) {
+                  return new Promise(function (resolve, reject) {
+                    
+                    var img = new Image();
+                    
+                    img.onload = function () {
+                      resolve(img);
+                      
+                    };
+                    img.onerror = function (error) {
+                      reject(error);
+                    };
+                    img.dataset.filename = imageFileName;
+                    img.src = "data:image/png;base64," + data;
+                  });
+                });
+            });
+
+            // Ожидаем загрузки всех изображений
+            Promise.all(promises)
+              .then(function (images) {
+                // Все изображения загружены, можно объединить их
+                mergeImages(images);
+              })
+              .catch(function (error) {
+                // Обработка ошибок загрузки изображений
+                console.error("Ошибка загрузки изображения:", error);
+              });
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      // Функция обработки загруженных файлов
+      function handleFiles(files) {
+        
+        var images = [];
+        var count = files.length;
+        var loaded = 0;
+
+        // Чтение файлов и создание изображений из них
+        [...files].forEach(function (file) {
+          if (file.type.startsWith("image/")) {
+            var reader = new FileReader();
+            reader.onload = function (event) {
+                
+              var img = new Image();
+              img.dataset.filename = file.name;
+              img.onload = function () {
+                images.push(img);
+                loaded++;
+                // После загрузки всех изображений объединяем их
+                if (loaded === count) {
+                  mergeImages(images);
+                }
+              };
+              img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+
+      // Функция для объединения изображений в одно
+      function mergeImages(images) {
+        // console.log(images);
+        console.log(images);
+        images = sortFiles(images);
+        console.log(images);
+        var maxWidth = Math.max(...images.map((image) => image.width));
+        var maxHeight = Math.max(...images.map((image) => image.height));
+
+        var canvas = document.createElement("canvas");
+        var ctx = canvas.getContext("2d");
+
+        var images360 = [];
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+
+        // Рисуем все изображения на холсте
+        images.forEach(function (image) {
+          ctx.drawImage(image, 0, 0, image.width, image.height);
+        });
+
+        var mask = createAlphaMask(canvas, maxWidth, maxHeight);
+        var cropFunction = cropImage(ctx, mask, maxWidth, maxHeight, canvas);
+        // получаем функцию подрезчик
+        images.forEach(function (image) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          rectangleCanvas = cropFunction(canvas);
+
+          // downloadImage(rectangleCanvas.toDataURL("image/png"),"test");
+          addThumb(rectangleCanvas.toDataURL("image/png"),image.dataset.filename);
+          images360.push(image.dataset.filename);
+
+          var img = new Image();
+          img.src = rectangleCanvas.toDataURL("image/png")
+          img.dataset.filename = image.dataset.filename;
+
+          document.getElementById("view360").appendChild(img);
+          setTimeout(function() {
+            loader.classList.add("hidden");
+          },800);
+        });
+
+        // Обработчик события для отслеживания движения мыши
+        document.addEventListener("mousemove", function (event) {
+            // При движении мыши вызываем функцию обновления изображения
+            updateImage(event.clientX, images360);
+        });
+        
+        dropArea.remove();
+        downloadBtn.disabled = false;
+        downloadBtnZip.disabled = false;
+      }
+
+      // Функция для создания маски альфа-канала
+      function createAlphaMask(canvas, width, height) {
+        var ctx = canvas.getContext("2d");
+        var imageData = ctx.getImageData(0, 0, width, height);
+        var data = imageData.data;
+
+        for (var i = 0; i < data.length; i += 4) {
+          var alpha = data[i + 3];
+          if (alpha === 0) {
+            data[i] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        return ctx.getImageData(0, 0, width, height);
+      }
+
+      // Функция для обрезки изображения по маске
+      function cropImage(ctx, mask, width, height, canvas) {
+        // Находим границы квадрата с ненулевыми значениями альфа-канала
+        var minX = width;
+        var minY = height;
+        var maxX = 0;
+        var maxY = 0;
+
+        for (var y = 0; y < height; y++) {
+          for (var x = 0; x < width; x++) {
+            var alpha = mask.data[(y * width + x) * 4 + 3];
+            if (alpha !== 0) {
+              minX = Math.min(minX, x);
+              minY = Math.min(minY, y);
+              maxX = Math.max(maxX, x);
+              maxY = Math.max(maxY, y);
+            }
+          }
+        }
+
+        // Высчитываем область с ненулевой альфой
+        var croppedWidth = maxX - minX + 1;
+        var croppedHeight = maxY - minY + 1;
+
+        // Получаем функцию обрезайку с замкнутыми параметрами обрезки
+
+        var croppedWithBorderCanvas = fitImageIntoSquareWithBorder(
+          ctx,
+          croppedWidth,
+          croppedHeight,
+          0.1
+        );
+        return croppedWithBorderCanvas;
+      }
+
+      // Функция для вписывания изображения в квадрат с прозрачной границей
+      function fitImageIntoSquareWithBorder(
+        ctx,
+        width,
+        height,
+        borderWidthPercentage
+      ) {
+        // Определяем максимальную ширину и высоту изображения
+        const maxSize = Math.max(width, height);
+
+        // Вычисляем размеры квадрата с прозрачной границей
+        const squareSize = maxSize + 2 * maxSize * borderWidthPercentage;
+
+        // Создаем новый холст для результата с альфа-каналом
+        //   var squareCanvas = document.createElement('canvas');
+        //   var squareCtx = squareCanvas.getContext('2d');
+
+        //   squareCanvas.width = squareSize;
+        //   squareCanvas.height = squareSize;
+
+        //   // Рисуем прозрачную границу
+        //   squareCtx.clearRect(0, 0, squareSize, squareSize);
+
+        //   // Устанавливаем альфа-канал для нового холста
+        //   squareCtx.globalAlpha = 0;
+
+        // Вычисляем смещение для вписывания изображения в квадрат
+        //   var offsetX = (squareSize - width) / 2;
+        //   var offsetY = (squareSize - height) / 2;
+        //   Вычисляем смещение получившегося квадрата относительно изначального изображения
+        const totalOffsetX = (ctx.canvas.width - squareSize) / 2;
+        const totalOffsetY = (ctx.canvas.height - squareSize) / 2;
+
+        // Нарисовываем изображение на холсте с учетом смещения
+        //
+        //   squareCtx.drawImage(ctx.canvas, -totalOffsetX, -totalOffsetY);
+
+        // Сбрасываем альфа-канал
+        //   squareCtx.globalAlpha = 1;
+
+        // Возвращаем результат
+        //   return squareCanvas;
+
+        // формируем замыкание с параметрами подрезки, в аргумент посылаем канвас с изображением из этой серии для правильного кропа
+        return function (canvas) {
+          var squareCanvas = document.createElement("canvas");
+          var squareCtx = squareCanvas.getContext("2d");
+          squareCanvas.width = squareSize;
+          squareCanvas.height = squareSize;
+          squareCtx.drawImage(canvas, -totalOffsetX, -totalOffsetY);
+          return squareCanvas;
+        };
+      }
+
+      function addThumb(url,filename) {
+        const newDiv = document.createElement("div");
+        newDiv.dataset.filename = filename;
+        const container = document.getElementById("thumbs");
+        newDiv.classList.add(
+          "aspect-square",
+          "bg-contain",
+          "bg-white",
+          "rounded-2xl",
+          "shadow-xl"
+        );
+        newDiv.style.backgroundImage = "url(" + url + ")";
+        container.appendChild(newDiv);
+        // document.body.appendChild(newDiv, container);
+      }
+      // Функция для отображения результата
+      function displayResult(imageUrl, filename) {
+        resultImage.src = imageUrl;
+        resultContainer.style.display = "block";
+        // Обработчик события клика для кнопки скачивания
+        downloadBtn.onclick = function () {
+          downloadImage(imageUrl);
+        };
+      }
+
+      // Функция для скачивания изображения
+      function downloadImage(imageUrl, filename) {
+        var a = document.createElement("a");
+        a.href = imageUrl;
+        a.download = "processed_image.jpg";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      function sortFiles(lst) {
+            return lst.sort(function(a, b) {
+                var aNum = parseInt(a.dataset.filename.split('_')[0]);
+                var bNum = parseInt(b.dataset.filename.split('_')[0]);
+                return aNum - bNum;
+            });
+        }
+      // Функция для обновления изображения в зависимости от положения курсора
+      function updateImage(xPosition, filenames) {
+        // Определяем индекс изображения на основе положения курсора
+        var index = Math.floor((xPosition / window.innerWidth) * filenames.length);
+
+        // Получаем все изображения внутри div
+        var images = document
+          .getElementById("view360")
+          .getElementsByTagName("img");
+
+        // Показываем только выбранное изображение, скрывая остальные
+        for (var i = 0; i < images.length; i++) {
+          if (i === index) {
+            images[i].style.display = "block";
+          } else {
+            images[i].style.display = "none";
+          }
+        }
+        // Обновляем прогресс
+        var progress = document.getElementById("progress");
+        progress.style.width = ((index + 1) / filenames.length) * 100 + "%";
+
+        // Обновляем название файла
+        var filename = document.getElementById("filename");
+        filename.textContent = "File: " + filenames[index];
+      }
+    </script>
+  </body>
+</html>
