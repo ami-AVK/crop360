@@ -79,26 +79,28 @@
     </div>
     <!-- Контейнер для отображения результата -->
     <div
-      class="flex flex-wrap justify-between p-4 gap-4 w-full fixed top-0  items-center "
+      class="flex flex-wrap justify-between p-4 gap-2 md:gap-4 w-full fixed top-0  items-center "
     >
       <div
         id="filename"
-        class="empty:bg-inherit text-slate-500 font-normal tracking-wide text-md md:text-lg bg-sky-200 rounded-full p-0.5 px-2"
+        class="empty:bg-inherit text-slate-500 font-normal tracking-wide text-sm md:text-lg bg-sky-200 rounded-full p-0.5 px-2"
       ></div>
-      <div class="flex gap-4">
+      <div class="flex gap-2 md:gap-4">
         <button
           id="download-btn"
-          class="z-50 bg-sky-500 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-sky-400 transition-colors disabled:bg-gray-200  basis-1 grow md:max-w-max text-sm/4 md:text-lg/6"
+          class="z-50 bg-sky-500 p-2 px-3 md:p-3 md:px-4  text-white rounded-3xl cursor-pointer hover:bg-sky-400 transition-colors disabled:bg-gray-200  basis-1 grow md:max-w-max text-sm/4 md:text-lg/6"
           disabled
         >
-          Скачать по отдельности
+          <span class="md:hidden">Файлы</span>
+          <span class="hidden md:block">Скачать по отдельности</span>
         </button>
         <button
           id="download-btn-zip"
-          class="z-50 bg-blue-600 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-blue-400 transition-colors disabled:bg-gray-200  basis-1 grow md:max-w-max text-sm/4 md:text-lg/6"
+          class="z-50 bg-blue-600 p-2 px-3 md:p-3 md:px-4 text-white rounded-3xl cursor-pointer hover:bg-blue-400 transition-colors disabled:bg-gray-200  basis-1 grow md:max-w-max text-sm/4 md:text-lg/6"
           disabled
         >
-          Скачать zip-архив
+          <span class="md:hidden">Zip</span>
+          <span class="hidden md:block">Скачать zip-архив</span>
         </button>
       </div>
       <div id="progress" class="absolute h-2 top-0 bg-sky-500 left-0"></div>
@@ -109,7 +111,7 @@
     >
       <div
         id="view360"
-        class="w-full p-0 m-4 md:p-8 lg:p-16 mt-12 rounded-3xl empty:hidden max-w-screen-lg border-2 border-dashed border-slate-200 bg-white"
+        class="w-full p-0 m-8 md:mt-12 rounded-3xl empty:hidden max-w-screen-lg border-2 border-dashed border-slate-200 bg-white"
       ></div>
       <!-- Кнопка для скачивания результата -->
     </div>
@@ -179,7 +181,7 @@
           loader.classList.remove("hidden");
           // Если файл - zip-архив, читаем его содержимое
           if (file.type === "application/zip") {
-            ZIP_NAME = file.name;
+            ZIP_NAME = file.name.replace(".zip", '_cropped.zip');
             handleZipFile(file);
           } else if (file.type.startsWith("image/")) {
             // Если файл - изображение, добавляем его в массив imageFiles
@@ -332,24 +334,24 @@
           img.dataset.filename = image.dataset.filename;
           img.dataset.caption = image.dataset.filename;
           img.dataset.fancybox = "gallery";
+          img.classList.add("m-auto");
 
           imagesToDownload.push(img);
 
           document.getElementById("view360").appendChild(img);
         });
 
-        // Обработчик события для отслеживания движения мыши
-        console.log(images360.length);
+        
+        updateImage(0,images360);
 
         var view360 = document.getElementById("view360");
+        view360.addEventListener("touchmove", handleWheelEvent, false); 
         // Добавляем обработчики событий для сенсорных устройств
         function handleWheelEvent(event) {
           var x = event.changedTouches[0].pageX/window.innerWidth;
           updateImage(x, images360);
         }
-        // view360.addEventListener("touchstart", handleWheelEvent, false); 
-        view360.addEventListener("touchmove", handleWheelEvent, false); 
-        // view360.addEventListener("touchend", handleWheelEvent, false); 
+        
         document.addEventListener("mousemove", function (event) {
           // При движении мыши вызываем функцию обновления изображения
           updateImage(event.clientX/window.innerWidth, images360);
@@ -413,12 +415,18 @@
         var croppedWidth = maxX - minX + 1;
         var croppedHeight = maxY - minY + 1;
 
+        // Вычисляем смещение квадрата
+        var offsetX = minX;
+        var offsetY = minY;
+
         // Получаем функцию обрезайку с замкнутыми параметрами обрезки
 
         var croppedWithBorderCanvas = fitImageIntoSquareWithBorder(
           ctx,
           croppedWidth,
           croppedHeight,
+          offsetX,
+          offsetY,
           0.1
         );
         return croppedWithBorderCanvas;
@@ -429,6 +437,8 @@
         ctx,
         width,
         height,
+        offsetX,
+        offsetY,
         borderWidthPercentage
       ) {
         // Определяем максимальную ширину и высоту изображения
@@ -437,16 +447,21 @@
         // Вычисляем размеры квадрата с прозрачной границей
         const squareSize = maxSize + 2 * maxSize * borderWidthPercentage;
 
-        //   Вычисляем смещение получившегося квадрата относительно изначального изображения
-        const totalOffsetX = (ctx.canvas.width - squareSize) / 2;
-        const totalOffsetY = (ctx.canvas.height - squareSize) / 2;
+        // Вычисляем смещение получившегося квадрата относительно изначального изображения
+        // const totalOffsetX = (ctx.canvas.width - width) / 2 - offsetX;
+        // const totalOffsetY = (ctx.canvas.height - height) / 2 - offsetY;
+        const totalOffsetX = offsetX - (squareSize - width)/2;
+        const totalOffsetY = offsetY - (squareSize - height)/2;
 
+        console.log("!!!!!!!!!!!!!!!!!!");
+        console.log(`offsetX:${offsetX} offsetY:${offsetY}`);
         // формируем замыкание с параметрами подрезки, в аргумент посылаем канвас с изображением из этой серии для правильного кропа
         return function (canvas) {
           var squareCanvas = document.createElement("canvas");
           var squareCtx = squareCanvas.getContext("2d");
           squareCanvas.width = squareSize;
           squareCanvas.height = squareSize;
+          // squareCtx.drawImage(canvas, -totalOffsetX, -totalOffsetY);
           squareCtx.drawImage(canvas, -totalOffsetX, -totalOffsetY);
           return squareCanvas;
         };
