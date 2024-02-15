@@ -5,27 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Обрезка изображений</title>
     <style>
-      /* Стили для области перетаскивания */
-
       /* Стили для подсветки области при перетаскивании */
-      #drop-area.dragging {
-        background-color: rgb(226, 232, 240);
+      @keyframes gradient {
+        100% {
+          background-position: 100% 100%;
+        }
       }
-
+      #drop-area[data-status="dragging"] {
+        background-image: repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 1rem,
+          #5dbeff 1rem,
+          #5dbeff 2rem
+        );
+        background-size: 200% 200%;
+        animation: gradient 10s linear infinite;
+      }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css"
+    />
   </head>
   <body class="bg-slate-100">
     <!-- Область перетаскивания для загрузки изображений -->
-    <div id="loader" class="w-full h-full fixed bg-gray-800/60 top-0 z-50 backdrop-blur-lg hidden">
-        <div role="status" class="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2">
-            <svg aria-hidden="true" class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/><path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/></svg>
-            <span class="sr-only">Loading...</span>
-        </div>
+    <div
+      id="loader"
+      class="w-full h-full fixed bg-sky-600/80 top-0 z-50 backdrop-blur-lg hidden"
+    >
+      <div
+        role="status"
+        class="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2"
+      >
+        <svg
+          aria-hidden="true"
+          class="w-8 h-8 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
+          viewBox="0 0 100 101"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+            fill="currentColor"
+          />
+          <path
+            d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+            fill="currentFill"
+          />
+        </svg>
+        <span class="sr-only">Работаем...</span>
+      </div>
     </div>
-    <div id="drop-area" class="mt-32 w-full lg:max-w-screen-lg px-16 mx-auto h-96 hover:bg-sky-100 border-2 border-dashed border-slate-200 rounded-3xl flex text-center cursor-pointer">
-      <p class="mx-auto lg:text-lg self-center tracking-wide text-slate-400 font-light">
+    <div
+      id="drop-area"
+      class="mt-32 w-full lg:max-w-screen-lg px-16 mx-auto h-96 hover:bg-sky-100 border-2 border-dashed border-slate-200 rounded-3xl flex text-center cursor-pointer data-[status=dragging]:bg-sky-200"
+    >
+      <p
+        class="mx-auto lg:text-lg self-center tracking-wide text-slate-400 font-light"
+      >
         Перетащите сюда изображения или щелкните, чтобы выбрать файлы
       </p>
       <input
@@ -37,24 +78,39 @@
       />
     </div>
     <!-- Контейнер для отображения результата -->
-    <div class="flex justify-between p-4 gap-4 w-full fixed top-0 bg-slate-100/40 items-center ">
-        <div id="filename" class="text-slate-500 font-bold tracking-wide text-lg"></div>
-        <div class="flex gap-4">
-            <button id="download-btn" class="z-50 bg-sky-500 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-sky-400 transition-colors disabled:bg-gray-200" disabled>
-                Скачать по отдельности
-            </button>
-            <button id="download-btn-zip" class="z-50 bg-blue-600 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-blue-400 transition-colors disabled:bg-gray-200" disabled>
-                Скачать zip-архив
-            </button>
-        </div>
-        <div id="progress" class="absolute h-2 top-0 bg-sky-500 left-0"></div>
-        
+    <div
+      class="flex justify-between p-4 gap-4 w-full fixed top-0  items-center "
+    >
+      <div
+        id="filename"
+        class="empty:bg-inherit text-slate-500 font-normal tracking-wide text-md md:text-lg bg-sky-200 rounded-full p-0.5 px-2"
+      ></div>
+      <div class="flex gap-4">
+        <button
+          id="download-btn"
+          class="z-50 bg-sky-500 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-sky-400 transition-colors disabled:bg-gray-200 max-w-min md:max-w-max text-sm/4 md:text-lg/6"
+          disabled
+        >
+          Скачать по отдельности
+        </button>
+        <button
+          id="download-btn-zip"
+          class="z-50 bg-blue-600 p-3 px-4 text-white rounded-3xl cursor-pointer hover:bg-blue-400 transition-colors disabled:bg-gray-200 max-w-min md:max-w-max text-sm/4 md:text-lg/6"
+          disabled
+        >
+          Скачать zip-архив
+        </button>
+      </div>
+      <div id="progress" class="absolute h-2 top-0 bg-sky-500 left-0"></div>
     </div>
     <div
       id="result-container"
       class="flex mx-auto flex-col py-8 items-center gap-8 w-full"
     >
-      <div id="view360" class="w-full p-16 rounded-3xl empty:hidden max-w-screen-lg border-2 border-dashed border-slate-200"></div>
+      <div
+        id="view360"
+        class="w-full p-0 m-4 md:p-8 lg:p-16 mt-12 rounded-3xl empty:hidden max-w-screen-lg border-2 border-dashed border-slate-200 bg-white"
+      ></div>
       <!-- Кнопка для скачивания результата -->
     </div>
     <div
@@ -63,14 +119,21 @@
     ></div>
     <!-- JavaScript код -->
     <script>
+      Fancybox.bind('[data-fancybox="gallery"]', {});
+
       // Получение необходимых элементов из DOM
       var dropArea = document.getElementById("drop-area");
       var resultContainer = document.getElementById("result-container");
-    //   var resultImage = document.getElementById("result-image");
+      //   var resultImage = document.getElementById("result-image");
       var downloadBtn = document.getElementById("download-btn");
       var downloadBtnZip = document.getElementById("download-btn-zip");
       var fileElem = document.getElementById("fileElem");
       var loader = document.getElementById("loader");
+      var ZIP_NAME = "cropped_images.zip";
+      var images360 = [];
+
+      let clientX;
+      let clientY;
 
       // Обработчики событий для области перетаскивания
       ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
@@ -93,39 +156,43 @@
 
       // Функции для подсветки области перетаскивания при перетаскивании
       function highlight(e) {
-        dropArea.classList.add("dragging");
+        dropArea.dataset.status = "dragging";
       }
 
       function unhighlight(e) {
-        dropArea.classList.remove("dragging");
+        dropArea.dataset.status = "";
       }
 
       // Обработчик события "drop" для области перетаскивания
       dropArea.addEventListener("drop", handleDrop, false);
 
-      // Функция обработки загруженных файлов
+      // Функция обработки события "drop" для области перетаскивания
       function handleDrop(e) {
         var dt = e.dataTransfer;
         var files = dt.files;
+        var imageFiles = []; // Создаем массив для изображений
 
         // Проверяем каждый файл
         for (var i = 0; i < files.length; i++) {
           var file = files[i];
-            
+
           loader.classList.remove("hidden");
           // Если файл - zip-архив, читаем его содержимое
           if (file.type === "application/zip") {
+            ZIP_NAME = file.name;
             handleZipFile(file);
           } else if (file.type.startsWith("image/")) {
-            // Если файл - изображение, обрабатываем его как ранее
-            handleFiles([file]);
+            // Если файл - изображение, добавляем его в массив imageFiles
+            imageFiles.push(file);
           }
         }
+
+        // После завершения цикла передаем массив imageFiles в функцию handleFiles
+        handleFiles(imageFiles);
       }
 
       // Обработчик события клика для кнопки выбора файлов
       dropArea.addEventListener("click", function () {
-       
         fileElem.click();
       });
 
@@ -161,24 +228,22 @@
             var loaded = 0;
             // Читаем изображения из zip-архива
             var promises = imageFiles.map(function (imageFileName) {
-    
-
               return zip
                 .file(imageFileName)
                 .async("base64")
                 .then(function (data) {
                   return new Promise(function (resolve, reject) {
-                    
                     var img = new Image();
-                    
+
                     img.onload = function () {
                       resolve(img);
-                      
                     };
                     img.onerror = function (error) {
                       reject(error);
                     };
                     img.dataset.filename = imageFileName;
+                    img.dataset.caption = imageFileName;
+                    img.dataset.fancybox = "gallery";
                     img.src = "data:image/png;base64," + data;
                   });
                 });
@@ -201,7 +266,6 @@
 
       // Функция обработки загруженных файлов
       function handleFiles(files) {
-        
         var images = [];
         var count = files.length;
         var loaded = 0;
@@ -211,13 +275,15 @@
           if (file.type.startsWith("image/")) {
             var reader = new FileReader();
             reader.onload = function (event) {
-                
               var img = new Image();
               img.dataset.filename = file.name;
+              img.dataset.caption = file.name;
+              img.dataset.fancybox = "gallery";
               img.onload = function () {
                 images.push(img);
                 loaded++;
                 // После загрузки всех изображений объединяем их
+                console.log(loaded === count);
                 if (loaded === count) {
                   mergeImages(images);
                 }
@@ -231,17 +297,17 @@
 
       // Функция для объединения изображений в одно
       function mergeImages(images) {
-        // console.log(images);
-        console.log(images);
+        console.log(images.length);
+
         images = sortFiles(images);
-        console.log(images);
         var maxWidth = Math.max(...images.map((image) => image.width));
         var maxHeight = Math.max(...images.map((image) => image.height));
 
         var canvas = document.createElement("canvas");
         var ctx = canvas.getContext("2d");
 
-        var images360 = [];
+        
+        var imagesToDownload = [];
         canvas.width = maxWidth;
         canvas.height = maxHeight;
 
@@ -249,7 +315,6 @@
         images.forEach(function (image) {
           ctx.drawImage(image, 0, 0, image.width, image.height);
         });
-
         var mask = createAlphaMask(canvas, maxWidth, maxHeight);
         var cropFunction = cropImage(ctx, mask, maxWidth, maxHeight, canvas);
         // получаем функцию подрезчик
@@ -259,28 +324,50 @@
           rectangleCanvas = cropFunction(canvas);
 
           // downloadImage(rectangleCanvas.toDataURL("image/png"),"test");
-          addThumb(rectangleCanvas.toDataURL("image/png"),image.dataset.filename);
+          // addThumb(rectangleCanvas.toDataURL("image/png"),image.dataset.filename);
           images360.push(image.dataset.filename);
 
           var img = new Image();
-          img.src = rectangleCanvas.toDataURL("image/png")
+          img.src = rectangleCanvas.toDataURL("image/png");
           img.dataset.filename = image.dataset.filename;
+          img.dataset.caption = image.dataset.filename;
+          img.dataset.fancybox = "gallery";
+
+          imagesToDownload.push(img);
 
           document.getElementById("view360").appendChild(img);
-          setTimeout(function() {
-            loader.classList.add("hidden");
-          },800);
         });
 
         // Обработчик события для отслеживания движения мыши
+        console.log(images360.length);
+
+        var view360 = document.getElementById("view360");
+        // Добавляем обработчики событий для сенсорных устройств
+        function handleWheelEvent(event) {
+          var x = event.changedTouches[0].pageX/window.innerWidth;
+          updateImage(x, images360);
+        }
+        // view360.addEventListener("touchstart", handleWheelEvent, false); 
+        view360.addEventListener("touchmove", handleWheelEvent, false); 
+        // view360.addEventListener("touchend", handleWheelEvent, false); 
         document.addEventListener("mousemove", function (event) {
-            // При движении мыши вызываем функцию обновления изображения
-            updateImage(event.clientX, images360);
+          // При движении мыши вызываем функцию обновления изображения
+          updateImage(event.clientX/window.innerWidth, images360);
         });
-        
+
+        downloadBtn.onclick = function () {
+          downloadImages(imagesToDownload);
+        };
+
+        createZipForExport(imagesToDownload);
+
         dropArea.remove();
         downloadBtn.disabled = false;
-        downloadBtnZip.disabled = false;
+        // downloadBtnZip.disabled = false;
+
+        setTimeout(function () {
+          loader.classList.add("hidden");
+        }, 800);
       }
 
       // Функция для создания маски альфа-канала
@@ -350,35 +437,9 @@
         // Вычисляем размеры квадрата с прозрачной границей
         const squareSize = maxSize + 2 * maxSize * borderWidthPercentage;
 
-        // Создаем новый холст для результата с альфа-каналом
-        //   var squareCanvas = document.createElement('canvas');
-        //   var squareCtx = squareCanvas.getContext('2d');
-
-        //   squareCanvas.width = squareSize;
-        //   squareCanvas.height = squareSize;
-
-        //   // Рисуем прозрачную границу
-        //   squareCtx.clearRect(0, 0, squareSize, squareSize);
-
-        //   // Устанавливаем альфа-канал для нового холста
-        //   squareCtx.globalAlpha = 0;
-
-        // Вычисляем смещение для вписывания изображения в квадрат
-        //   var offsetX = (squareSize - width) / 2;
-        //   var offsetY = (squareSize - height) / 2;
         //   Вычисляем смещение получившегося квадрата относительно изначального изображения
         const totalOffsetX = (ctx.canvas.width - squareSize) / 2;
         const totalOffsetY = (ctx.canvas.height - squareSize) / 2;
-
-        // Нарисовываем изображение на холсте с учетом смещения
-        //
-        //   squareCtx.drawImage(ctx.canvas, -totalOffsetX, -totalOffsetY);
-
-        // Сбрасываем альфа-канал
-        //   squareCtx.globalAlpha = 1;
-
-        // Возвращаем результат
-        //   return squareCanvas;
 
         // формируем замыкание с параметрами подрезки, в аргумент посылаем канвас с изображением из этой серии для правильного кропа
         return function (canvas) {
@@ -391,7 +452,7 @@
         };
       }
 
-      function addThumb(url,filename) {
+      function addThumb(url, filename) {
         const newDiv = document.createElement("div");
         newDiv.dataset.filename = filename;
         const container = document.getElementById("thumbs");
@@ -415,28 +476,37 @@
           downloadImage(imageUrl);
         };
       }
+      function downloadImages(images) {
+        images.forEach((image, index) => {
+              downloadImage(image.src,image.dataset.filename);
+            });
+      }
+
 
       // Функция для скачивания изображения
       function downloadImage(imageUrl, filename) {
         var a = document.createElement("a");
         a.href = imageUrl;
-        a.download = "processed_image.jpg";
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
       }
       function sortFiles(lst) {
-            return lst.sort(function(a, b) {
-                var aNum = parseInt(a.dataset.filename.split('_')[0]);
-                var bNum = parseInt(b.dataset.filename.split('_')[0]);
-                return aNum - bNum;
-            });
-        }
+        return lst.sort(function (a, b) {
+          var aNum = parseInt(a.dataset.filename.split("_")[0]);
+          var bNum = parseInt(b.dataset.filename.split("_")[0]);
+          return aNum - bNum;
+        });
+      }
       // Функция для обновления изображения в зависимости от положения курсора
       function updateImage(xPosition, filenames) {
         // Определяем индекс изображения на основе положения курсора
-        var index = Math.floor((xPosition / window.innerWidth) * filenames.length);
 
+        var index = Math.floor(
+          Math.min(Math.max(xPosition, 0), .99) * filenames.length
+        );
+        // console.log(filenames);
         // Получаем все изображения внутри div
         var images = document
           .getElementById("view360")
@@ -456,8 +526,62 @@
 
         // Обновляем название файла
         var filename = document.getElementById("filename");
-        filename.textContent = "File: " + filenames[index];
+        filename.textContent = "Файл: " + filenames[index];
       }
+
+      function createZipForExport(imgSrcArray) {
+        var zip = new JSZip();
+        console.log(imgSrcArray);
+        function loadImage(image) {
+          return new Promise((resolve, reject) => {
+            var img = new Image();
+            img.onload = function () {
+              resolve(img);
+            };
+            img.onerror = function () {
+              reject(
+                new Error("Ошибка загрузки изображения в архив: " + image.src)
+              );
+            };
+            img.src = image.src;
+            img.dataset.filename = image.dataset.filename;
+          });
+        }
+
+        var promises = imgSrcArray.map(loadImage);
+
+        Promise.all(promises)
+          .then((images) => {
+            images.forEach((image, index) => {
+              var imageData = getImageData(image);
+              zip.file(image.dataset.filename, imageData, {
+                base64: true,
+              });
+            });
+            return zip.generateAsync({ type: "blob" });
+          })
+          .then((blob) => {
+            var link = document.getElementById("download-btn-zip");
+            link.disabled = false;
+            link.onclick = function () {
+              console.log("Формирование");
+              downloadImage(URL.createObjectURL(blob), ZIP_NAME);
+            };
+          })
+          .catch((error) => {
+            console.error("Не смог сформировать zip-архив:", error);
+          });
+      }
+
+      function getImageData(image) {
+        var canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        return canvas.toDataURL("image/png").split(",")[1];
+      }
+
     </script>
   </body>
 </html>
